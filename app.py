@@ -1,76 +1,155 @@
-import easyocr
 import streamlit as st
+import easyocr
+from PIL import Image
+import numpy as np
+import re
+
+# -----------------------------------
+# PAGE
+# -----------------------------------
+
+st.set_page_config(
+    page_title="Скенер за храни",
+    page_icon="🍔"
+)
+
+st.title("🍔 Скенер за вредни съставки")
+
+st.write(
+    "Качи снимка на етикет и приложението ще открие вредни съставки."
+)
+
+# -----------------------------------
+# OCR
+# -----------------------------------
+
+@st.cache_resource
+def load_reader():
+    return easyocr.Reader(['bg', 'en'], gpu=False)
+
+reader = load_reader()
+
+# -----------------------------------
+# ВРЕДНИ СЪСТАВКИ
+# -----------------------------------
+
+harmful_ingredients = {
+
+    "e102": "Тартразин",
+    "e110": "Sunset Yellow",
+    "e122": "Азорубин",
+    "e124": "Понсо 4R",
+    "e129": "Allura Red",
+    "e171": "Титанов диоксид",
+    "e211": "Натриев бензоат",
+    "e220": "Серен диоксид",
+    "e249": "Калиев нитрит",
+    "e250": "Натриев нитрит",
+    "e251": "Натриев нитрат",
+    "e252": "Калиев нитрат",
+    "e320": "BHA",
+    "e321": "BHT",
+    "e407": "Карагенан",
+    "e433": "Полисорбат 80",
+    "e450": "Дифосфати",
+    "e451": "Трифосфати",
+    "e621": "MSG",
+    "e627": "Динатриев гуанилат",
+    "e631": "Динатриев инозинат",
+    "e950": "Ацесулфам K",
+    "e951": "Аспартам",
+    "e952": "Цикламат",
+    "e954": "Захарин",
+    "e955": "Сукралоза",
+
+    "палмово масло": "Палмово масло",
+    "palm oil": "Палмово масло",
+
+    "hydrogenated oil": "Хидрогенирано масло",
+
+    "trans fat": "Транс мазнини",
+
+    "high fructose corn syrup": "Глюкозо-фруктозен сироп",
+
+    "msg": "Мононатриев глутамат",
+
+    "artificial flavor": "Изкуствени аромати",
+
+    "preservatives": "Консерванти"
+}
+
+# -----------------------------------
+# UPLOAD
+# -----------------------------------
+
+uploaded_file = st.file_uploader(
+    "Качи снимка",
+    type=["jpg", "jpeg", "png"]
+)
+
+# -----------------------------------
+# OCR PROCESS
+# -----------------------------------
+
 if uploaded_file is not None:
 
-    try:
-        image = Image.open(uploaded_file).convert("RGB")
+    image = Image.open(uploaded_file).convert("RGB")
 
-        st.image(image, caption="Качено изображение", use_container_width=True)
+    st.image(image, use_container_width=True)
 
-        img_array = np.array(image)
+    img_array = np.array(image)
 
-        with st.spinner("Разпознаване на текст от изображението..."):
-            results = reader.readtext(img_array, detail=0)
+    with st.spinner("Сканиране..."):
 
-        extracted_text = " ".join(results)
-        extracted_text_lower = extracted_text.lower()
-
-        # Clean OCR text
-        extracted_text_lower = re.sub(r'[^a-zA-Zа-яА-Я0-9 ]', ' ', extracted_text_lower)
-        extracted_text_lower = re.sub(r'\s+', ' ', extracted_text_lower)
-
-        st.subheader("📄 Разпознат текст")
-        st.text_area(
-            "Разпознати съставки",
-            extracted_text,
-            height=220
+        results = reader.readtext(
+            img_array,
+            detail=0
         )
 
-        # ---------------------------------------------------
-        # ТЪРСЕНЕ НА ВРЕДНИ СЪСТАВКИ
-        # ---------------------------------------------------
+    extracted_text = " ".join(results)
 
-        found_ingredients = []
+    extracted_text = extracted_text.lower()
 
-        for ingredient, description in harmful_ingredients.items():
+    extracted_text = re.sub(
+        r'[^a-zA-Zа-яА-Я0-9 ]',
+        ' ',
+        extracted_text
+    )
 
-            # Проверка за E-номера
-            if ingredient.startswith("e"):
+    st.subheader("📄 Разпознат текст")
 
-                pattern = rf'{re.escape(ingredient)}'
+    st.text_area(
+        "",
+        extracted_text,
+        height=220
+    )
 
-                if re.search(pattern, extracted_text_lower):
-                    found_ingredients.append((ingredient.upper(), description))
+    found = []
 
-            # Проверка за текстови съставки
-            else:
+    for ingredient, description in harmful_ingredients.items():
 
-                if ingredient in extracted_text_lower:
-                    found_ingredients.append((ingredient, description))
+        pattern = rf'\\b{re.escape(ingredient)}\\b'
 
-        # Премахване на дублиращи се резултати
-        unique_found = list(set(found_ingredients))
+        if re.search(pattern, extracted_text):
 
-        # ---------------------------------------------------
-        # RESULTS
-        # ---------------------------------------------------
+            found.append(
+                (ingredient.upper(), description)
+            )
 
-        st.subheader("⚠️ Открити съставки")
+    found = list(set(found))
 
-        if unique_found:
+    st.subheader("⚠️ Открити съставки")
 
-            for ingredient, description in unique_found:
-                st.warning(f"{ingredient} → {description}")
+    if found:
 
-        else:
-            st.success("Не са открити известни вредни съставки.")
+        for ingredient, description in found:
 
-    except Exception as e:
-        st.error(f"Грешка при обработка на изображението: {e}")
+            st.warning(
+                f"{ingredient} → {description}"
+            )
 
-# ---------------------------------------------------
-# FOOTER
-# ---------------------------------------------------
+    else:
 
-st.markdown("---")
-st.caption("Това приложение е само с образователна цел.")
+        st.success(
+            "Не са открити опасни съставки."
+        )
