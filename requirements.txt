@@ -1,5 +1,5 @@
-streamlit==1.45.1
-easyocr==1.7.2
+streamlit
+easyocr
 torch
 torchvision
 pillow
