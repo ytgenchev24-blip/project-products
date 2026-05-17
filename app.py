@@ -84,7 +84,6 @@ if uploaded_file is not None:
     # --- ЧАСТ 2: Проверка за думи в състава ---
     found_ingredients = False
     for ing_name, details in INGREDIENTS.items():
-        # Проверяваме дали някоя от ключовите думи (BG/EN) присъства в текста
         if any(keyword in full_text for keyword in details["match"]):
             found_ingredients = True
             if details["status"] == "вреден":
@@ -101,3 +100,6 @@ if uploaded_file is not None:
     if has_harmful:
         st.error("❌ Внимание! Продуктът съдържа съставки, които могат да бъдат вредни за здравето.")
     elif found_ingredients or cleaned_codes:
+        st.success("🍏 Чист или полезен продукт! Не бяха открити опасни съставки.")
+    else:
+        st.warning("⚠️ Анализът е неуспешен поради липса на разпознати съставки в базата ни данни.")
